@@ -1,0 +1,68 @@
+name: Download and Patch Modules
+
+on:
+  push:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  JAVA_VERSION: '17'
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  delete_previous_releases:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete Previous Releases
+        uses: dev-drprasad/delete-tag-and-release@master
+        with:
+          tag_name: LSpatched
+          github_token: ${{ env.GITHUB_TOKEN }}
+
+  build:
+    needs: delete_previous_releases
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: ['ReTelegram*Release.apk', 'telespeed.apk', 'Killergram*.apk', 'tmoe*.apk', 'TelegramHelper.apk', 'TGramHooks*.apk']
+        client: ['telegram.apk', 'Nagram-*-arm64-v8a.apk', 'ForkClient*.apk', 'TF*.apk', 'plus*.apk']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@master
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'adopt'
+          java-version: '17'
+
+      - name: Create module list
+        id: create_module_list
+        run: echo "${{ matrix.module }}" > module_list.txt
+        shell: bash
+
+      - name: Download and Patch Client
+        run: |
+          curl -L -o ${{ matrix.client }} https://telegram.org/dl/android/apk
+          java -jar *.jar -r -l 2 ${{ matrix.client }} $(cat module_list.txt)
+        shell: bash
+
+      - name: Create Release
+        id: create_release
+        run: |
+          module_list_content=$(cat module_list.txt | sed 's/-m/\n/g')
+          echo "Included modules from module_list.txt:
+          $module_list_content" > release_body.txt
+        shell: bash
+
+      - name: Upload Release
+        id: upload_release
+        uses: softprops/action-gh-release@master
+        with:
+          files: |
+            *-lspatched.apk
+          tag_name: LSpatched
+          draft: false
+          body_path: release_body.txt
+        env:
+          GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
