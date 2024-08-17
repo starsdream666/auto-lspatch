@@ -1,4 +1,4 @@
-name: Download and Patch Modules DEV
+name: Download and Patch Modules
 
 on:
   push:
@@ -7,22 +7,9 @@ on:
   workflow_call:
   workflow_dispatch:
 
+
 jobs:
-  delete_previous_releases:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Delete Previous Releases
-        run: |
-          release_id=$(curl -s https://api.github.com/repos/MartinatorTime/auto-lspatch/releases | jq -r '.[] | select(.tag_name=="LSpatched-dev") | .id')
-          if [ -n "$release_id" ]; then
-            echo "Deleting previous release $release_id..."
-            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/MartinatorTime/auto-lspatch/releases/$release_id"
-          fi
-        shell: bash
-
-  build:
-    needs: delete_previous_releases
+  build-clients:
     runs-on: ubuntu-latest
 
     steps:
@@ -30,22 +17,28 @@ jobs:
         uses: actions/checkout@master
         with:
           ref: dev
-        
+          
+      - name: Install curl and jq
+        run: |
+          sudo apt update
+          sudo apt install -y curl jq
+          
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'adopt'
-          java-version: '17'
+          java-version: '18'
 
       - name: Create module list
         id: create_module_list
         run: |
           modules=""
           modules="$modules -m ReTelegram*Release.apk" # Uncomment to enable module
-          # modules="$modules -m telespeed.apk"  # Uncomment to enable module
+          modules="$modules -m telespeed.apk"  # Uncomment to enable module
+          # modules="$modules -m ./Backup/TeleSpeedMod.apk"  # Uncomment to enable module
           # modules="$modules -m telegram_sidestories*.apk" # Uncomment to enable module
           modules="$modules -m Killergram*.apk" # Uncomment to enable module
-          # modules="$modules -m ./Backup/tmoe*.apk"       # Uncomment to enable module
+          modules="$modules -m ./Backup/tmoe*.apk"       # Uncomment to enable module
           # modules="$modules -m ./Backup/TelegramHelper.apk"     # Uncomment to enable module    # Uncomment to enable module
           echo "$modules" > module_list.txt 
         shell: bash
@@ -53,7 +46,7 @@ jobs:
       - name: Download Re-Telegram Module
         run: |
           # Get the filename from GitHub release
-          filename=$(curl -s https://api.github.com/repos/Xposed-Modules-Repo/nep.timeline.re_telegram/releases/latest | jq -r '.assets[] | select(.name | test("ReTelegram.*Release.apk")) | .name')
+          filename=$(curl -s https://api.github.com/repos/Xposed-Modules-Repo/nep.timeline.re_telegram/releases/latest | jq -r '.assets[] | select(.name | test("ReTelegram.*Release.apk")) | {name, browser_download_url}')
           
           # Download the file with the extracted filename
           curl -L -o "$filename" $(curl -s https://api.github.com/repos/Xposed-Modules-Repo/nep.timeline.re_telegram/releases/latest | jq -r '.assets[] | select(.name | test("ReTelegram.*Release.apk")) | .browser_download_url')
@@ -124,18 +117,6 @@ jobs:
           java -jar *.jar -l 2 $filename $(cat module_list.txt)
         shell: bash
         
-      - name: Download And Patch Nekogram Client
-        run: |
-          # Get the filename from GitHub release
-          filename=$(curl -s https://api.github.com/repos/Nekogram/Nekogram/releases/latest | jq -r '.assets[] | select(.name | endswith("-arm64-v8a.apk")) | .name')
-
-          # Download the file with the extracted filename
-          curl -L -o "$filename" "$(curl -s https://api.github.com/repos/Nekogram/Nekogram/releases/latest | jq -r '.assets[] | select(.name | endswith("-arm64-v8a.apk")) | .browser_download_url')"
-          
-          #Patch TelegramFOSS Client With Modules
-          java -jar *.jar -l 2 $filename $(cat module_list.txt)
-        shell: bash
-        
       - name: Download And Patch Nagram Client
         run: |
           # Get the filename from GitHub release
@@ -146,6 +127,15 @@ jobs:
           
           #Patch TelegramFOSS Client With Modules
           java -jar *.jar -l 2 $filename $(cat module_list.txt)
+        shell: bash        
+
+      - name: Delete Previous Releases
+        run: |
+          release_id=$(curl -s https://api.github.com/repos/MartinatorTime/auto-lspatch/releases | jq -r '.[] | select(.tag_name=="LSpatched") | .id')
+          if [ -n "$release_id" ]; then
+            echo "Deleting previous release $release_id..."
+            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/MartinatorTime/auto-lspatch/releases/$release_id"
+          fi
         shell: bash
 
       - name: Create Release
@@ -162,7 +152,7 @@ jobs:
         with:
           files: |
             *-lspatched.apk
-          tag_name: LSpatched-dev
+          tag_name: LSpatched-DEV
           draft: false
           body_path: release_body.txt
         env:
